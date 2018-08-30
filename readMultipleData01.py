@@ -12,8 +12,8 @@ import time
 import math
 import random
 
-import numpy as np
-import matplotlib.pyplot  as plt
+#import numpy as np
+#import matplotlib.pyplot  as plt
 
 from neo import Accel # import accelerometer
 from neo import Magno # import magnometer
@@ -22,17 +22,17 @@ from time import sleep # to add delays
 
 import csv
 
-import serial
-import sqlite3
-import ast
+#import serial
+#import sqlite3
+#import ast
 import datetime
 import sys
 import os
 
-from pymodbus.exceptions import ModbusIOException
+#from pymodbus.exceptions import ModbusIOException
 from argparse import ArgumentParser
 # import the server implementation
-from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+#from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 # configure the client logging
 import logging
 
@@ -59,8 +59,8 @@ def readBurst(SAMPLES, SAMPLING_RATE, accel, mag, gyr):
  
  for i in range (0, SAMPLES):
   accValue = accel.get()
-  magValue = mag.get()
-  gyrValue = gyr.get()
+  #magValue = mag.get()
+  #gyrValue = gyr.get()
   '''
   accMod = int(accValue[2])
   magMod = int(magValue[2])
@@ -71,22 +71,15 @@ def readBurst(SAMPLES, SAMPLING_RATE, accel, mag, gyr):
   gyrVals[i] = abs(gyrMod)
   '''
   accVals[i] = [int(accValue[0]), int(accValue[1]), int(accValue[2]) ]
-  magVals[i] = [int(magValue[0]), int(magValue[1]), int(magValue[2]) ]
-  gyrVals[i] = [int(gyrValue[0]), int(gyrValue[1]), int(gyrValue[2]) ]
+  #magVals[i] = [int(magValue[0]), int(magValue[1]), int(magValue[2]) ]
+  #gyrVals[i] = [int(gyrValue[0]), int(gyrValue[1]), int(gyrValue[2]) ]
   
   times[i] = str(datetime.datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3])
   
   with open("/sys/bus/iio/devices/iio:device0/in_voltage0_raw", "r") as adcFile:
    adc0 = adcFile.read().replace('\n', '')
-  with open("/sys/bus/iio/devices/iio:device0/in_voltage1_raw", "r") as adcFile:
-   adc1 = adcFile.read().replace('\n', '')  
-  with open("/sys/bus/iio/devices/iio:device0/in_voltage2_raw", "r") as adcFile:
-   adc2 = adcFile.read().replace('\n', '')  
-  with open("/sys/bus/iio/devices/iio:device0/in_voltage3_raw", "r") as adcFile:
-   adc3 = adcFile.read().replace('\n', '')
+   adcs[i] = [adc0]
    
-  adcs[i] = [adc0, adc1, adc2, adc3]
-  
   sleep(delay)
  
  endTime = int(round(time.time() * 1000))
@@ -132,6 +125,8 @@ def saveToCvs(csv_file, times, acc, mag, gyr, adcs, gpios):
  
   csv_file.write(line + "\n")
 
+ csv_file.write("\n")
+
 
 def main():
  
@@ -144,18 +139,10 @@ def main():
  # /sys/bus/iio/devices/iio:device0/
  
 
- ## initialize motion sensors
- acc = Accel()
- mag = Magno()
- gyr  = Gyro() # new objects p.s. this will auto initialize the device onboard
-
- # accel.calibrate()
- #gyro.calibrate() # Reset current values to 0
- # magno.calibrate()
 
  parser = ArgumentParser()
 
- parser.add_argument('--samplingrate','-r', action='store', default=10, 
+ parser.add_argument('--samplingrate','-f', action='store', default=10, 
                     dest='sampling_rate',
                     help='Set the sampling rate between sensor readings in Hz')
  parser.add_argument('--samples', '-s', action='store', default=16,
@@ -167,12 +154,29 @@ def main():
  parser.add_argument('--iterations', '-i', action='store', default=1,
                     dest='iterations', type=int,
                     help='Set the number of iteration')
- parser.add_argument('--daemon', '-g', action='store_true', default=False,
+ parser.add_argument('--label', '-l', action='store',
+                    dest='label',
+                    help='set the label')
+					
+ parser.add_argument('--daemon', '-x', action='store_true', default=False,
                     dest='im_a_daemon',
                     help='The script will be a daemon')
  parser.add_argument('--csv', '-c', action='store_true', default=False,
                     dest='csv_export',
-                    help='Export the data in csv')
+                    help='Export the data in csv')					
+ parser.add_argument('--acc', '-a', action='store_true', default=False,
+                    dest='csv_export',
+                    help='Enable accelerometer')
+ parser.add_argument('--mag', '-m', action='store_true', default=False,
+                    dest='csv_export',
+                    help='Enable magnetometer')
+ parser.add_argument('--gyr', '-g', action='store_true', default=False,
+                    dest='csv_export',
+                    help='Enable gyroscope')
+ parser.add_argument('--adc0', action='store_true', default=False,
+                    dest='csv_export',
+                    help='Enable adc0')
+									
  parser.add_argument('--version', action='version', version='%(prog)s  ' + str(__version__))
 
  results = parser.parse_args() 
@@ -182,26 +186,39 @@ def main():
  print "Samples per iteration " , results.samples
  print "iterations frequency " , results.iteration_delay
  print "iterations number" , results.iterations
+ print "label", results.label
  print '=========================='
 
  SAMPLING_RATE     = results.sampling_rate
  SAMPLES           = results.samples
  ITERATIONS_DELAY  = results.iteration_delay
  ITERATIONS        = results.iterations
- IM_A_DAEMON       = results.im_a_daemon
+ LABEL             = results.label
 
- data = readBurst(SAMPLES, SAMPLING_RATE, acc, mag, gyr)
+ 
+ ## initialize motion sensors
+ acc = Accel()
+ mag = Magno()
+ gyr = Gyro() # new objects p.s. this will auto initialize the device onboard
+
+ # accel.calibrate()
+ # gyro.calibrate() # Reset current values to 0
+ # magno.calibrate()
  
   # open cvs file
- csv_filename = './data/data-'+ str(datetime.datetime.now().strftime('%Y%m%d--%H:%M:%S')) +'.csv'
+ if LABEL is None: 
+  csv_filename = './data/data-'+ str(datetime.datetime.now().strftime('%Y%m%d--%H:%M:%S')) +'.csv'
+ else:
+  csv_filename = './data/' + LABEL + '-' + str(datetime.datetime.now().strftime('%Y%m%d--%H:%M:%S')) + '.csv'
+ 
  csv_file = open(csv_filename, "w+")
 
-
+ ## main loop
  for i in range(0, ITERATIONS):
   accData, magdata, gyroData, adcs, times  = readBurst(SAMPLES, SAMPLING_RATE, acc, mag, gyr)
-  saveToCvs(csv_file, times, accData, magdata, gyroData, adcs, None)
+  print '>>  Iteration ' + str(i)
+  saveToCvs(csv_file, times, accData, None, None, adcs, None)
   sleep(ITERATIONS_DELAY)
-  # save to cvs
  
  csv_file.close()
 
