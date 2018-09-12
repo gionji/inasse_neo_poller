@@ -12,8 +12,8 @@ import time
 import math
 import random
 
-import numpy as np
-import matplotlib.pyplot  as plt
+#import numpy as np
+#import matplotlib.pyplot  as plt
 
 from neo import Accel # import accelerometer
 from neo import Magno # import magnometer
