@@ -235,8 +235,8 @@ def main():
  ## main loop
  for i in range(0, ITERATIONS):
   accData, magdata, gyroData, adcs, times  = readBurst(SAMPLES, SAMPLING_RATE, acc, mag, gyr)
-  print '>>  Iteration ' + str(i)
-  #showData(accData)
+  print '>>  Iteration ' + str(i) 
+  print accData
   if CSV_EXPORT:
    saveToCvs(csv_file, times, accData, None, None, adcs, None)
   sleep(ITERATIONS_DELAY)
